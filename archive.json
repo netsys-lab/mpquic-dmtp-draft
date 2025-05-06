@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2025-05-04T01:58:19.958729+00:00",
+  "timestamp": "2025-05-06T01:50:07.019560+00:00",
   "repo": "netsys-lab/mpquic-dmtp-draft",
   "labels": [
     {
@@ -56,24 +56,26 @@
       "id": "PR_kwDON8RLqM6UdkLw",
       "title": "Add option to just use QUIC",
       "url": "https://github.com/netsys-lab/mpquic-dmtp-draft/pull/1",
-      "state": "OPEN",
+      "state": "MERGED",
       "author": "t-aus-m",
       "authorAssociation": "COLLABORATOR",
       "assignees": [],
       "labels": [],
       "body": "As the people from the mailing list proposed, I rephrased the draft so that it is also applicable to QUIC and not only to QUIC-MULTIPATH.",
       "createdAt": "2025-04-30T08:09:31Z",
-      "updatedAt": "2025-04-30T12:05:41Z",
+      "updatedAt": "2025-05-05T11:24:53Z",
       "baseRepository": "netsys-lab/mpquic-dmtp-draft",
       "baseRefName": "main",
       "baseRefOid": "055c658732354f8f4b93ff7306054bd7ab8b704b",
       "headRepository": "t-aus-m/mpquic-dmtp-draft",
       "headRefName": "t-aus-m-adding-quic",
       "headRefOid": "d19ea1a736b948b21e22a0ff000eaeb2517201b1",
-      "closedAt": null,
-      "mergedAt": null,
-      "mergedBy": null,
-      "mergeCommit": null,
+      "closedAt": "2025-05-05T11:24:53Z",
+      "mergedAt": "2025-05-05T11:24:53Z",
+      "mergedBy": "tjohn327",
+      "mergeCommit": {
+        "oid": "f33296fe210fbeb3313f66a8c416ca68ab8a7ebc"
+      },
       "comments": [],
       "reviews": []
     }
