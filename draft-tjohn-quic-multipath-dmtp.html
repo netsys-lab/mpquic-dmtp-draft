@@ -1052,7 +1052,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 </tr></thead>
 <tfoot><tr>
 <td class="left">John &amp; Riechard</td>
-<td class="center">Expires 6 November 2025</td>
+<td class="center">Expires 14 November 2025</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1065,12 +1065,12 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <dd class="internet-draft">draft-tjohn-quic-multipath-dmtp-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2025-05-05" class="published">5 May 2025</time>
+<time datetime="2025-05-13" class="published">13 May 2025</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Informational</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2025-11-06">6 November 2025</time></dd>
+<dd class="expires"><time datetime="2025-11-14">14 November 2025</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
@@ -1119,7 +1119,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 6 November 2025.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 14 November 2025.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1298,9 +1298,21 @@ svg :is([fill="white"], [fill^="#fff"]) {
 "<span class="bcp14">MAY</span>", and "<span class="bcp14">OPTIONAL</span>" in this document are to be interpreted as
 described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and only when, they
 appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶</a></p>
-<p id="section-2-2">Within this document:
-- "Deadline-aware streams" refers to streams in which an application indicates a time by which data must be delivered, beyond which data is no longer useful.
-- "Path" aligns with the <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> concept: Each path is identified by a unique Path ID and it may reference a specific combination of source and destination IP:port tuples or multiple paths as they may be offered in a path aware network, as defined by <span>[<a href="#RFC9473" class="cite xref">RFC9473</a>]</span>.<a href="#section-2-2" class="pilcrow">¶</a></p>
+<p id="section-2-2">Within this document:<a href="#section-2-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-2-3.1">
+          <p id="section-2-3.1.1">"Deadline-aware streams" refers to streams in which an application indicates a time by which data must be delivered, beyond which data is no longer useful.<a href="#section-2-3.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-3.2">
+          <p id="section-2-3.2.1">"Path" aligns with the <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> concept: Each path is identified by a unique Path ID and it may reference a specific combination of source and destination IP:port tuples or multiple paths as they may be offered in a path aware network, as defined by <span>[<a href="#RFC9473" class="cite xref">RFC9473</a>]</span>.<a href="#section-2-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-3.3">
+          <p id="section-2-3.3.1">A connection that is "multipath-using" in the sense of this draft is defined as a connection that has the <code>initial_max_path_id</code> transport parameter from <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> set to a value greater than 0.<a href="#section-2-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-3.4">
+          <p id="section-2-3.4.1">A connection that is "multipath-enabled" in the sense of this draft is defined as a connection that has the <code>initial_max_path_id</code> transport parameter from <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> set to any valid value.<a href="#section-2-3.4.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
 </section>
 </div>
 <div id="design-overview">
@@ -1339,7 +1351,7 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
                 <p id="section-3.1-2.2.2.2.1">Skip retransmissions when deadlines cannot be met<a href="#section-3.1-2.2.2.2.1" class="pilcrow">¶</a></p>
 </li>
               <li class="normal" id="section-3.1-2.2.2.3">
-                <p id="section-3.1-2.2.2.3.1">Consider path conditions when selecting retransmission paths when using <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span><a href="#section-3.1-2.2.2.3.1" class="pilcrow">¶</a></p>
+                <p id="section-3.1-2.2.2.3.1">Consider path conditions when selecting retransmission paths for a multipath-using connection<a href="#section-3.1-2.2.2.3.1" class="pilcrow">¶</a></p>
 </li>
             </ul>
 </li>
@@ -1358,7 +1370,7 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
             </ul>
 </li>
         </ol>
-<p id="section-3.1-3">Additionally, Implementations supporting deadline-aware streams while using <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> <span class="bcp14">MUST</span> feature:<a href="#section-3.1-3" class="pilcrow">¶</a></p>
+<p id="section-3.1-3">Additionally, Implementations supporting deadline-aware streams with multipath-using connections <span class="bcp14">MUST</span> feature:<a href="#section-3.1-3" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="section-3.1-4">
 <li id="section-3.1-4.1">
             <p id="section-3.1-4.1.1">Path Selection: Select paths for transmitting frames, retransmissions and acknowledgements based on metrics relevant to meeting deadlines, including:<a href="#section-3.1-4.1.1" class="pilcrow">¶</a></p>
@@ -1397,7 +1409,7 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
           <h4 id="name-extensions-to-quic-multipat">
 <a href="#section-3.1.1" class="section-number selfRef">3.1.1. </a><a href="#name-extensions-to-quic-multipat" class="section-name selfRef">Extensions to QUIC-MULTIPATH/QUIC</a>
           </h4>
-<p id="section-3.1.1-1">Our extensions build on <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>'s multipath framework (e.g., paths, path IDs, and validation). It will, however, also work with <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span>, be it with a reduced featureset (see <a href="#features" class="auto internal xref">Section 3.1</a>). This extension will add only:<a href="#section-3.1.1-1" class="pilcrow">¶</a></p>
+<p id="section-3.1.1-1">Our extensions build on <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>'s multipath framework (e.g., paths, path IDs, and validation). It will, however, also work with not multipath-enabled connections, be it with a reduced featureset (see <a href="#features" class="auto internal xref">Section 3.1</a>). This extension will add only:<a href="#section-3.1.1-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-3.1.1-2.1">
               <p id="section-3.1.1-2.1.1">A transport parameter to enable deadline-aware streams.<a href="#section-3.1.1-2.1.1" class="pilcrow">¶</a></p>
@@ -1489,8 +1501,8 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
 <a href="#section-3.4" class="section-number selfRef">3.4. </a><a href="#name-adaptive-forward-error-corr" class="section-name selfRef">Adaptive Forward Error Correction (FEC)</a>
         </h3>
 <p id="section-3.4-1">When deadlines are tight and packet losses frequent, relying solely on retransmissions may cause data to miss its deadline. To mitigate this risk, this extension optionally uses Adaptive FEC (AFEC) as proposed in <span>[<a href="#QUIC-AFEC" class="cite xref">QUIC-AFEC</a>]</span>. AFEC can reduce the need for retransmissions, particularly in networks with random or bursty loss characteristics.<a href="#section-3.4-1" class="pilcrow">¶</a></p>
-<p id="section-3.4-2">When using AFEC with <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>, the Tag Type of the FEC_Tag <span class="bcp14">MUST</span> be set to 1 to indicate "Long Flow Usage". In turn, both source symbol packets and repair symbol packets <span class="bcp14">MUST</span> carry the FEC_Tag frame so that repair packets can be correctly matched to their corresponding source packets across different paths. Such a constraint is not needed in an environment that uses <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span>.<a href="#section-3.4-2" class="pilcrow">¶</a></p>
-<p id="section-3.4-3">If multiple paths are available, FEC repair packets <span class="bcp14">SHOULD</span> be sent over a path different from the one carrying the source data. This de-correlates losses and increases the likelihood that repair symbols arrive even if other paths experience congestion or packet loss. The coding rate (i.e., the ratio of repair symbols to source symbols) <span class="bcp14">MAY</span> be configured on a per-stream basis, depending on the stream's tolerance for overhead versus its deadline sensitivity.<a href="#section-3.4-3" class="pilcrow">¶</a></p>
+<p id="section-3.4-2">When using AFEC in a multipath-using connection, the Tag Type of the FEC_Tag <span class="bcp14">MUST</span> be set to 1 to indicate "Long Flow Usage". In turn, both source symbol packets and repair symbol packets <span class="bcp14">MUST</span> carry the FEC_Tag frame so that repair packets can be correctly matched to their corresponding source packets across different paths. Such a constraint is not needed in a connection that is not multipath-enabled.<a href="#section-3.4-2" class="pilcrow">¶</a></p>
+<p id="section-3.4-3">In a multipath-using connection, FEC repair packets <span class="bcp14">SHOULD</span> be sent over a path different from the one carrying the source data. This de-correlates losses and increases the likelihood that repair symbols arrive even if other paths experience congestion or packet loss. The coding rate (i.e., the ratio of repair symbols to source symbols) <span class="bcp14">MAY</span> be configured on a per-stream basis, depending on the stream's tolerance for overhead versus its deadline sensitivity.<a href="#section-3.4-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="smart-retransmissions">
@@ -1498,7 +1510,7 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
         <h3 id="name-smart-retransmissions">
 <a href="#section-3.5" class="section-number selfRef">3.5. </a><a href="#name-smart-retransmissions" class="section-name selfRef">Smart Retransmissions</a>
         </h3>
-<p id="section-3.5-1">Smart retransmissions in a deadline-aware context mean that lost frames are only retransmitted if there is still enough time left to meet the deadline via one or – in case of a <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> setup – more paths. The sender computes whether the frames can arrive on time, factoring in the path's estimated one-way delay or RTT. If not, the sender discards the frames rather than wasting congestion window or scheduling capacity.<a href="#section-3.5-1" class="pilcrow">¶</a></p>
+<p id="section-3.5-1">Smart retransmissions in a deadline-aware context mean that lost frames are only retransmitted if there is still enough time left to meet the deadline via one or – with a multipath-using connection – more paths. The sender computes whether the frames can arrive on time, factoring in the path's estimated one-way delay or RTT. If not, the sender discards the frames rather than wasting congestion window or scheduling capacity.<a href="#section-3.5-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="path-metrics">
@@ -1509,7 +1521,7 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
 <p id="section-3.6-1">To schedule traffic effectively, the sender <span class="bcp14">SHOULD</span> gather:<a href="#section-3.6-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-3.6-2.1">
-            <p id="section-3.6-2.1.1">When using <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>: One-Way Delays or RTT for selecting the path(s) that can deliver data before the deadline.<a href="#section-3.6-2.1.1" class="pilcrow">¶</a></p>
+            <p id="section-3.6-2.1.1">One-Way Delays or RTT for determining if the data can reach its destination before the deadline and in case of a multipath-using connection for selecting the path(s) that can deliver data before the deadline.<a href="#section-3.6-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-3.6-2.2">
             <p id="section-3.6-2.2.1">Loss Rate: For deciding whether to apply adaptive FEC or more aggressive retransmissions.<a href="#section-3.6-2.2.1" class="pilcrow">¶</a></p>
@@ -1525,7 +1537,7 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
           </h4>
 <p id="section-3.6.1-1">A crucial metric for DMTP is the one-way or round-trip delay of the available path(s). This is used to decide whether a new or retransmitted packet can arrive before its deadline. In a path-aware network, the one-way delay might be advertised or inferred from routing information. Otherwise, endpoints measure RTT or one-way delay themselves.<a href="#section-3.6.1-1" class="pilcrow">¶</a></p>
 <p id="section-3.6.1-2">For accurate one-way delay measurements, endpoints <span class="bcp14">MAY</span> use synchronized clocks; if full clock sync is not feasible, a fallback to round-trip time measurements is still acceptable. For improved delay tracking, the additional fields for the receive timestamp of the ACK_EXTENDED frame as proposed in <span>[<a href="#QUIC-RECEIVE-TS" class="cite xref">QUIC-RECEIVE-TS</a>]</span> is used.<a href="#section-3.6.1-2" class="pilcrow">¶</a></p>
-<p id="section-3.6.1-3">In a <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> environment, if endpoints have agreed on the usage of the ACK_EXTENDED frame with the additional receive timestamp fields (Bit 1 of extended_ack_features transport parameter), packets containing a PING (type=0x01) frame <span class="bcp14">MUST</span> be acknowledged on the same path that the packet was received on.<a href="#section-3.6.1-3" class="pilcrow">¶</a></p>
+<p id="section-3.6.1-3">With a multipath-using connection, if endpoints have agreed on the usage of the ACK_EXTENDED frame with the additional receive timestamp fields (Bit 1 of extended_ack_features transport parameter), packets containing a PING (type=0x01) frame <span class="bcp14">MUST</span> be acknowledged on the same path that the packet was received on.<a href="#section-3.6.1-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="gathering-path-metrics">

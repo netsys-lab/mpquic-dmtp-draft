@@ -5,7 +5,7 @@
 Network Working Group                                            T. John
 Internet-Draft                                               T. Riechard
 Intended status: Informational    Otto-von-Guericke University Magdeburg
-Expires: 6 November 2025                                      5 May 2025
+Expires: 14 November 2025                                    13 May 2025
 
 
                 Deadline Aware Streams in QUIC Multipath
@@ -58,7 +58,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 6 November 2025.
+   This Internet-Draft will expire on 14 November 2025.
 
 Copyright Notice
 
@@ -180,13 +180,26 @@ Table of Contents
    BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all
    capitals, as shown here.
 
-   Within this document: - "Deadline-aware streams" refers to streams in
-   which an application indicates a time by which data must be
-   delivered, beyond which data is no longer useful. - "Path" aligns
-   with the [QUIC-MULTIPATH] concept: Each path is identified by a
-   unique Path ID and it may reference a specific combination of source
-   and destination IP:port tuples or multiple paths as they may be
-   offered in a path aware network, as defined by [RFC9473].
+   Within this document:
+
+   *  "Deadline-aware streams" refers to streams in which an application
+      indicates a time by which data must be delivered, beyond which
+      data is no longer useful.
+
+   *  "Path" aligns with the [QUIC-MULTIPATH] concept: Each path is
+      identified by a unique Path ID and it may reference a specific
+      combination of source and destination IP:port tuples or multiple
+      paths as they may be offered in a path aware network, as defined
+      by [RFC9473].
+
+   *  A connection that is "multipath-using" in the sense of this draft
+      is defined as a connection that has the initial_max_path_id
+      transport parameter from [QUIC-MULTIPATH] set to a value greater
+      than 0.
+
+   *  A connection that is "multipath-enabled" in the sense of this
+      draft is defined as a connection that has the initial_max_path_id
+      transport parameter from [QUIC-MULTIPATH] set to any valid value.
 
 3.  Design Overview
 
@@ -214,7 +227,7 @@ Table of Contents
        *  Skip retransmissions when deadlines cannot be met
 
        *  Consider path conditions when selecting retransmission paths
-          when using [QUIC-MULTIPATH]
+          for a multipath-using connection
 
    3.  Deadline Monitoring: Track deadline status and:
 
@@ -224,8 +237,8 @@ Table of Contents
 
        *  Allow applications to specify handling of missed deadlines
 
-   Additionally, Implementations supporting deadline-aware streams while
-   using [QUIC-MULTIPATH] MUST feature:
+   Additionally, Implementations supporting deadline-aware streams with
+   multipath-using connections MUST feature:
 
    1.  Path Selection: Select paths for transmitting frames,
        retransmissions and acknowledgements based on metrics relevant to
@@ -253,8 +266,8 @@ Table of Contents
 
    Our extensions build on [QUIC-MULTIPATH]'s multipath framework (e.g.,
    paths, path IDs, and validation).  It will, however, also work with
-   [QUIC], be it with a reduced featureset (see Section 3.1).  This
-   extension will add only:
+   not multipath-enabled connections, be it with a reduced featureset
+   (see Section 3.1).  This extension will add only:
 
    *  A transport parameter to enable deadline-aware streams.
 
@@ -344,14 +357,15 @@ Table of Contents
    retransmissions, particularly in networks with random or bursty loss
    characteristics.
 
-   When using AFEC with [QUIC-MULTIPATH], the Tag Type of the FEC_Tag
-   MUST be set to 1 to indicate "Long Flow Usage".  In turn, both source
-   symbol packets and repair symbol packets MUST carry the FEC_Tag frame
-   so that repair packets can be correctly matched to their
-   corresponding source packets across different paths.  Such a
-   constraint is not needed in an environment that uses [QUIC].
+   When using AFEC in a multipath-using connection, the Tag Type of the
+   FEC_Tag MUST be set to 1 to indicate "Long Flow Usage".  In turn,
+   both source symbol packets and repair symbol packets MUST carry the
+   FEC_Tag frame so that repair packets can be correctly matched to
+   their corresponding source packets across different paths.  Such a
+   constraint is not needed in a connection that is not multipath-
+   enabled.
 
-   If multiple paths are available, FEC repair packets SHOULD be sent
+   In a multipath-using connection, FEC repair packets SHOULD be sent
    over a path different from the one carrying the source data.  This
    de-correlates losses and increases the likelihood that repair symbols
    arrive even if other paths experience congestion or packet loss.  The
@@ -363,7 +377,7 @@ Table of Contents
 
    Smart retransmissions in a deadline-aware context mean that lost
    frames are only retransmitted if there is still enough time left to
-   meet the deadline via one or – in case of a [QUIC-MULTIPATH] setup –
+   meet the deadline via one or – with a multipath-using connection –
    more paths.  The sender computes whether the frames can arrive on
    time, factoring in the path's estimated one-way delay or RTT.  If
    not, the sender discards the frames rather than wasting congestion
@@ -373,8 +387,10 @@ Table of Contents
 
    To schedule traffic effectively, the sender SHOULD gather:
 
-   *  When using [QUIC-MULTIPATH]: One-Way Delays or RTT for selecting
-      the path(s) that can deliver data before the deadline.
+   *  One-Way Delays or RTT for determining if the data can reach its
+      destination before the deadline and in case of a multipath-using
+      connection for selecting the path(s) that can deliver data before
+      the deadline.
 
    *  Loss Rate: For deciding whether to apply adaptive FEC or more
       aggressive retransmissions.
@@ -397,7 +413,7 @@ Table of Contents
    delay tracking, the additional fields for the receive timestamp of
    the ACK_EXTENDED frame as proposed in [QUIC-RECEIVE-TS] is used.
 
-   In a [QUIC-MULTIPATH] environment, if endpoints have agreed on the
+   With a multipath-using connection, if endpoints have agreed on the
    usage of the ACK_EXTENDED frame with the additional receive timestamp
    fields (Bit 1 of extended_ack_features transport parameter), packets
    containing a PING (type=0x01) frame MUST be acknowledged on the same
