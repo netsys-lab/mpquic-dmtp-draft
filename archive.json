@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2025-05-20T01:52:54.182172+00:00",
+  "timestamp": "2025-05-22T01:51:41.820480+00:00",
   "repo": "netsys-lab/mpquic-dmtp-draft",
   "labels": [
     {
@@ -76,6 +76,32 @@
       "mergeCommit": {
         "oid": "f33296fe210fbeb3313f66a8c416ca68ab8a7ebc"
       },
+      "comments": [],
+      "reviews": []
+    },
+    {
+      "number": 2,
+      "id": "PR_kwDON8RLqM6XGdLK",
+      "title": "Add API",
+      "url": "https://github.com/netsys-lab/mpquic-dmtp-draft/pull/2",
+      "state": "OPEN",
+      "author": "t-aus-m",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "I added the basic methods that would be necessary as well as the methods that I'd consider needed for use with an external optimizer",
+      "createdAt": "2025-05-21T17:28:50Z",
+      "updatedAt": "2025-05-21T17:28:50Z",
+      "baseRepository": "netsys-lab/mpquic-dmtp-draft",
+      "baseRefName": "main",
+      "baseRefOid": "a5f6ef2fd084137bb99d59c7143035149ffb0d42",
+      "headRepository": "t-aus-m/mpquic-dmtp-draft",
+      "headRefName": "t-aus-m-adding-api",
+      "headRefOid": "4fd006b1d957d6f3484b480dc90131cf6e749566",
+      "closedAt": null,
+      "mergedAt": null,
+      "mergedBy": null,
+      "mergeCommit": null,
       "comments": [],
       "reviews": []
     }
