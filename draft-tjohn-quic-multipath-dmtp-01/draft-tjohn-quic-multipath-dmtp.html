@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>Deadline Aware Streams in QUIC Multipath</title>
+<meta content="Tony John" name="author">
+<meta content="Till-Frederik Riechard" name="author">
+<meta content="
+       This document proposes the Deadline-aware Multipath Transport Protocol (DMTP) concept as an extension to the Multipath Extension for QUIC (QUIC-MULTIPATH) as well as QUIC itself. This extension aims to support data streams with strict latency requirements by enabling the signaling of a stream's deadline and ideally by combining multipath scheduling, congestion control adaptations, and optional forward error correction (FEC). Moreover, DMTP leverages the path identifiers introduced by the Multipath Extension for QUIC to distinguish different end-to-end paths as they may be offered in a Path Aware Network (PAN) such as SCION. This allows an application to select its preferred paths while maintaining interoperability with standard endpoints using the Multipath Extension for QUIC. In combination, DMTP enables endpoints to exchange and schedule deadline-aware streams across multiple network paths. Additionally, this proposal also maintains compatibility with QUIC itself, in order to deliver its benefits - albeit with limited effectiveness - even in scenarios where only a single path can or should be used. 
+    " name="description">
+<meta content="xml2rfc 3.28.1" name="generator">
+<meta content="deadline-aware" name="keyword">
+<meta content="multipath" name="keyword">
+<meta content="scheduling" name="keyword">
+<meta content="path aware networks" name="keyword">
+<meta content="draft-tjohn-quic-multipath-dmtp-latest" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.28.1
+    Python 3.12.10
+    ConfigArgParse 1.7
+    google-i18n-address 3.1.1
+    intervaltree 3.1.0
+    Jinja2 3.1.6
+    lxml 5.3.1
+    platformdirs 4.3.8
+    pycountry 24.6.1
+    PyYAML 6.0.2
+    requests 2.32.3
+    setuptools 80.9.0
+    wcwidth 0.2.13
+-->
+<link href="draft-tjohn-quic-multipath-dmtp.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('Lora SemiBold'), local('Lora-SemiBold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-semibold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light dark;
+  --background-color: #fff;
+  --text-color: #222;
+  --title-color: #191919;
+  --link-color: #2a6496;
+  --highlight-color: #f9f9f9;
+  --line-color: #eee;
+  --pilcrow-weak: #ddd;
+  --pilcrow-strong: #bbb;
+  --small-font-size: 14.5px;
+  --font-mono: 'Oxygen Mono', monospace;
+  --font-title: "Sofia Sans Semi Condensed", sans-serif;
+  scrollbar-color: #bbb #eee;
+}
+body {
+  max-width: 600px;
+  margin: 75px auto;
+  padding: 0 5px;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  font: 16px/22px "Lora", serif;
+  scroll-behavior: smooth;
+}
+
+.ears {
+  display: none;
+}
+
+/* headings */
+section {
+  clear: both;
+}
+.section-number {
+  padding-right: 0.5em;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-title);
+  font-weight: 680;
+  margin: 0.8em 0 0.3em;
+  font-size-adjust: 0.5;
+  color: var(--title-color);
+}
+h1#title {
+  font-size: 32px;
+  line-height: 40px;
+  clear: both;
+}
+h1#title, h1#rfcnum {
+  margin: 1.5em 0 0.2em;
+}
+h1#rfcnum + h1#title {
+  margin: 0.2em 0;
+}
+
+h1, h2, h3 {
+  font-size: 22px;
+  line-height: 27px;
+}
+h4, h5, h6 {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+/* general structure */
+.author {
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+#abstract+p {
+  font-size: 18px;
+  line-height: 24px;
+}
+#abstract+p code, #abstract+p samp, #abstract+p tt {
+  font-size: 16px;
+  line-height: 0;
+}
+
+p {
+  padding: 0;
+  margin: 0.5em 0;
+  text-align: left;
+}
+div {
+  margin: 0;
+}
+.alignRight.art-text {
+  background-color: var(--highlight-color);
+  border: 1px solid var(--line-color);
+  border-radius: 3px;
+  padding: 0.5em 1em 0;
+  margin-bottom: 0.5em;
+}
+.alignRight.art-text pre {
+  padding: 0;
+  width: auto;
+}
+.alignRight {
+  margin: 1em 0;
+}
+.alignRight > *:first-child {
+  border: none;
+  margin: 0;
+  float: right;
+  clear: both;
+}
+.alignRight > *:nth-child(2) {
+  clear: both;
+  display: block;
+  border: none;
+}
+svg {
+  display: block;
+}
+/* font-family isn't space-separated, but =~ will have to do */
+svg[font-family~="monospace" i], svg [font-family~="monospace" i] {
+  font-family: var(--font-mono);
+}
+.alignCenter.art-text {
+  background-color: var(--highlight-color);
+  border: 1px solid var(--line-color);
+  border-radius: 3px;
+  padding: 0.5em 1em 0;
+  margin-bottom: 0.5em;
+}
+.alignCenter.art-text pre {
+  padding: 0;
+  width: auto;
+}
+.alignCenter {
+  margin: 1em 0;
+}
+.alignCenter > *:first-child {
+  border: none;
+  /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
+     support flexbox yet.
+  */
+  display: table;
+  margin: 0 auto;
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 0.5em 2em;
+  & :is(ol, ul) {
+    margin-left: 1em;
+  }
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+  & li {
+    margin-top: 0.5em;
+  }
+}
+:is(ul, ol).compact, .ulCompact, .olCompact {
+  margin: 0 0 0 2em;
+  & li {
+    margin: 0;
+    & :first-child { margin-top: 0; }
+    & :last-child { margin-bottom: 0; }
+  }
+}
+
+/* definition lists */
+dl {
+  clear: left;
+  --indent: 3ch;
+  /* --indent: attr(indent ch); not supported in any browser, but we can dream */
+  &.olPercent {
+    --indent: 5ch;
+    & > dt {
+      min-width: calc(var(--indent) - 2ch);
+    }
+  }
+  &.olPercent > dt {
+    float: none;
+  }
+
+  dl > dd > & {
+    margin-top: 0.5em;
+    margin-bottom: 0;
+  }
+}
+dl:not(.dlNewline) > dt {
+  float: left;
+  margin-right: 2ch;
+  min-width: 8ch;
+}
+dl > dd {
+  margin-bottom: .8em;
+  margin-left: var(--indent) !important; /* stupid element overrides */
+  min-height: 2ex;
+}
+:is(dl.compact, .dlCompact) > dd {
+  margin-bottom: 0;
+  & > :is(:first-child, .break:first-child + *) {
+    margin-top: 0;
+  }
+  & > :is(:last-child) {
+    margin-bottom: 0;
+  }
+}
+:is(dd, span).break {
+  display: none;
+}
+
+/* links */
+a, a[href].selfRef:hover {
+  text-decoration: none;
+}
+a[href] {
+  color: var(--link-color);
+}
+a[href].selfRef, .iref + a[href].internal {
+  color: var(--text-color);
+}
+a[href]:hover {
+  text-decoration: underline;
+}
+a[href].selfRef:hover {
+  background-color: var(--highlight-color);
+}
+a.xref:is(.cite, .auto), :is(#status-of-memo, #copyright) a {
+  white-space: nowrap;
+}
+
+/* Figures */
+tt, code, pre {
+  background-color: var(--highlight-color);
+  font: 14px/22px var(--font-mono);
+}
+tt, code {
+  /* changing the font for inline elements leads to different ascender
+     and descender heights; as we want to retain baseline alignment,
+     remove leading to avoid altering the final height of lines
+     note: this fails if these blocks take an entire line,
+     a different solution would be great */
+  line-height: 0;
+}
+:is(h1, h2, h3, h4, h5, h6) :is(tt, code) {
+  font-size: 84%;
+}
+pre {
+  border: 1px solid var(--line-color);
+  font-size: 13.5px;
+  line-height: 16px;
+  letter-spacing: -0.2px;
+  margin: 5px;
+  padding: 5px;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0.5em 0;
+  padding: 0;
+}
+figure blockquote {
+  margin: 0.8em 0.4em 0.4em;
+}
+figcaption, caption {
+  font-style: italic;
+  margin: 0.5em 1.5em;
+  text-align: left;
+  caption-side: bottom;
+}
+@media screen {
+  /* Auto-collapse boilerplate. */
+  :is(#status-of-memo, #copyright) p {
+    margin: -2px 0;
+    max-height: 0;
+    transition: max-height 2s ease, margin 0.5s ease 0.5s;
+    overflow: hidden;
+  }
+  :is(#status-of-memo, #copyright):hover p,
+  :is(#status-of-memo, #copyright) h2:target ~ p {
+    margin: 0.5em 0;
+    max-height: 500px;
+    overflow: auto;
+  }
+  pre, svg {
+    display: inline-block;
+    /* In the horizontal direction, sometimes people make over-sized figures.
+       Scrollbars for those is therefore necessary: auto adds them as necessary..
+       In the vertical direction, the line-height can combine with the font
+       asender/descender height to produce scrollbars: hidden avoids that. */
+    overflow: auto hidden;
+  }
+  pre {
+    max-width: 100%;
+    width: calc(100% - 22px - 1em);
+  }
+  svg {
+    max-width: calc(100% - 22px - 1em);
+  }
+  figure pre {
+    display: block;
+    width: calc(100% - 25px);
+  }
+  :is(pre, svg) + .pilcrow {
+    display: inline-block;
+    vertical-align: text-bottom;
+    padding-bottom: 8px;
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 0 2em;
+  font-style: italic;
+}
+blockquote {
+  margin: 1em 0;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+
+/* tables */
+table {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+}
+table.right {
+  margin-left: auto;
+}
+table.center {
+  margin-left: auto;
+  margin-right: auto;
+}
+table.left {
+  margin-right: auto;
+}
+table .text-left {
+  text-align: left;
+}
+table .text-center {
+  text-align: center;
+}
+table .text-right {
+  text-align: right;
+}
+
+thead, tbody {
+  border: 1px solid var(--line-color);
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 10px;
+}
+th {
+  background-color: var(--line-color);
+}
+:is(tr:nth-child(2n), thead+tbody > tr:nth-child(2n+1)) > td {
+  background-color: var(--background-color);
+}
+:is(tr:nth-child(2n+1), thead+tbody > tr:nth-child(2n)) > td {
+  background-color: var(--highlight-color);
+}
+table caption {
+  margin: 0;
+  padding: 3px 0 3px 1em;
+}
+table p {
+  margin: 0;
+}
+
+/* pilcrow */
+a.pilcrow {
+  margin-left: 3px;
+  opacity: 0.2;
+  user-select: none;
+  &[href] {
+    color: var(--pilcrow-weak);
+    &:hover { text-decoration: none; }
+  }
+}
+@media not print {
+  :hover > a.pilcrow {
+    opacity: 1;
+  }
+  a.pilcrow[href]:hover {
+    color: var(--pilcrow-strong);
+    background-color: transparent;
+  }
+}
+@media print {
+  a.pilcrow {
+    display: none;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid var(--line-color);
+}
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: 600;
+  font-size: var(--small-font-size);
+}
+.role {
+  font-variant: all-small-caps;
+}
+sub, sup {
+  line-height: 1;
+  font-size: 80%;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: var(--small-font-size);
+  line-height: 18px;
+  --identifier-width: 15ch;
+  & dt {
+    width: var(--identifier-width);
+    min-width: var(--identifier-width);
+    clear: left;
+    float: left;
+    text-align: right;
+    margin-right: 1ch;
+  }
+  & dd {
+    margin: 0;
+    margin-left: calc(1em + var(--identifier-width)) !important;
+    min-width: 5em;
+  }
+  & .authors {
+    & .author {
+      display: inline-block;
+      margin-right: 1.5em;
+    }
+    & .org {
+      font-style: italic;
+    }
+  }
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #999;
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+}
+.docInfo .prepared {
+  float: right;
+}
+
+/* table of contents */
+#toc {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+
+  & nav {
+    & ul {
+      margin: 0 0.5em 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    & li {
+      line-height: 1.3em;
+      margin: 2px 0;
+      padding-left: 1.2em;
+      text-indent: -1.2em;
+    }
+  }
+  & a.xref {
+    white-space: normal;
+  }
+}
+
+.references {
+  & > dt {
+    text-align: right;
+    font-weight: bold;
+    min-width: 10ch;
+    margin-right: 1.5ch;
+    &:target::before {
+      content: "⇒";
+      margin: 0 10px 0 -25px;
+    }
+  }
+  & > dd {
+    margin-left: 12ch !important;
+    overflow: visible;
+    & .refInstance {
+      margin-bottom: 0.8em;
+    }
+    & .ascii {
+      margin-bottom: 0.25em;
+    }
+  }
+}
+
+#rfc\.index\.index + ul {
+  margin-left: 0;
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  max-width: 20em;
+  margin: 1em auto 1em 0;
+
+  & .nameRole {
+    font-weight: 700;
+    margin-left: 0;
+  }
+  & .label {
+    margin: 0.5em 0;
+  }
+  & .type {
+    display: none;
+  }
+  & .alternative-contact {
+    margin: 0.5em 0 0.25em 0;
+  }
+  & .non-ascii {
+    margin: 0 0 0 2em;
+  }
+  & div.left {
+    text-align: left;
+  }
+  & div.right {
+    text-align: right;
+  }
+}
+
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+@media (min-width: 500px) {
+  #authors-addresses > section {
+    column-count: 2;
+    column-gap: 20px;
+  }
+  #authors-addresses > section > h2 {
+    column-span: all;
+  }
+  /* hack for break-inside: avoid-column */
+  #authors-addresses address {
+    display: inline-block;
+    break-inside: avoid-column;
+  }
+}
+
+/* Comments */
+.rfcEditorRemove p:first-of-type {
+  font-style: italic;
+}
+.cref {
+  background-color: rgba(249, 232, 105, 0.3);
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+
+@media screen {
+  #toc nav {
+    font-family: var(--font-title);
+    font-weight: 360;
+    & > ul { margin-bottom: 2em; }
+    & ul {
+      margin: 0 0 0 4px;
+      & :is(p, li) {
+        margin: 2px 0;
+      }
+    }
+  }
+  #toc a.toplink {
+    float: right;
+  }
+}
+@media not screen {
+  #toc a.toplink {
+    display: none;
+  }
+}
+
+
+/* TOC layout for smaller screens */
+@media screen and (max-width: 929px) {
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 1px 0 0 0;
+    margin: 0;
+    border-bottom: 1px solid #ccc;
+    opacity: 0.6;
+  }
+  #toc h2 {
+    margin: 0;
+    padding: 2px 0 2px 6px;
+    padding-right: 1em;
+    font-size: 18px;
+    line-height: 24px;
+    min-width: 190px;
+    text-align: right;
+    background-color: #444;
+    color: white;
+    cursor: pointer;
+    &::before { /* css hamburger */
+      float: right;
+      position: relative;
+      width: 1em;
+      height: 1px;
+      left: -164px;
+      margin: 8px 0 0 0;
+      background: white none repeat scroll 0 0;
+      box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+      content: "";
+    }
+  }
+  #toc nav {
+    display: none;
+    background-color: var(--background-color);
+    padding: 0.5em 1em 1em;
+    overflow: auto;
+    overscroll-behavior: contain;
+    height: calc(100vh - 48px);
+    border-left: 1px solid #ddd;
+  }
+  #toc.active {
+    opacity: 1;
+    & nav { display: block; }
+  }
+  /* Make the collapsed ToC header render white on gray also when it's a link */
+  #toc h2 a,
+  #toc h2 a:is(:link, :focus, :hover),
+  #toc a.toplink,
+  #toc a.toplink:hover {
+    color: white;
+    background-color: #444;
+    text-decoration: none;
+  }
+  #toc a.toplink {
+    margin: 2px 0.5em 0;
+  }
+}
+
+/* TOC layout for wide screens */
+@media screen and (min-width: 930px) {
+  body {
+    padding-right: 360px;
+    padding-right: calc(min(180px + 20%, 500px));
+  }
+  #toc {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    right: calc(50vw - 480px);
+    width: 312px;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+  }
+  #toc h2 {
+    margin: 0;
+    padding: 0.25em 1em 1em 0;
+  }
+  #toc nav {
+    display: block;
+    height: calc(90vh - 84px);
+    bottom: 0;
+    padding: 0.5em 0 2em;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+  #toc a.toplink {
+    margin: 8px 0.5em 0;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc, #n-introduction {
+    page-break-before: always;
+  }
+  #toc {
+    border-top: none;
+    padding-top: 0;
+  }
+  figure, pre, .vcard {
+    page-break-inside: avoid;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  :is(h2, h3, h4, h5, h6)+*, dd {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+}
+
+/* Dark mode. */
+@media (prefers-color-scheme: dark) {
+:root {
+  --background-color: #121212;
+  --text-color: #f0f0f0;
+  --title-color: #fff;
+  --link-color: #4da4f0;
+  --highlight-color: #282828;
+  --line-color: #444;
+  --pilcrow-weak: #444;
+  --pilcrow-strong: #666;
+  scrollbar-color: #777 #333;
+}
+}
+
+/* SVG Trick: a prefix match works because only black and white are allowed */
+svg :is([stroke="black"], [stroke^="#000"]) {
+  stroke: var(--text-color);
+}
+svg :is([stroke="white"], [stroke^="#fff"]) {
+  stroke: var(--background-color);
+}
+svg :is([fill="black"], [fill^="#000"], :not([fill])) {
+  fill: var(--text-color);
+}
+svg :is([fill="white"], [fill^="#fff"]) {
+  fill: var(--background-color);
+}
+</style>
+
+</head>
+<body class="xml2rfc">
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">Deadline Aware Streams in QUIC Multipath</td>
+<td class="right">June 2025</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">John &amp; Riechard</td>
+<td class="center">Expires 7 December 2025</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">Network Working Group</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-tjohn-quic-multipath-dmtp-latest</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2025-06-05" class="published">5 June 2025</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Experimental</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2025-12-07">7 December 2025</time></dd>
+<dt class="label-authors">Authors:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">T. John</div>
+<div class="org">Otto-von-Guericke University Magdeburg</div>
+</div>
+<div class="author">
+      <div class="author-name">T. Riechard</div>
+<div class="org">Otto-von-Guericke University Magdeburg</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">Deadline Aware Streams in QUIC Multipath</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">This document proposes the Deadline-aware Multipath Transport Protocol (DMTP) concept as an extension to the Multipath Extension for QUIC (QUIC-MULTIPATH) as well as QUIC itself. This extension aims to support data streams with strict latency requirements by enabling the signaling of a stream's deadline and ideally by combining multipath scheduling, congestion control adaptations, and optional forward error correction (FEC). Moreover, DMTP leverages the path identifiers introduced by the Multipath Extension for QUIC to distinguish different end-to-end paths as they may be offered in a Path Aware Network (PAN) such as SCION. This allows an application to select its preferred paths while maintaining interoperability with standard endpoints using the Multipath Extension for QUIC. In combination, DMTP enables endpoints to exchange and schedule deadline-aware streams across multiple network paths. Additionally, this proposal also maintains compatibility with QUIC itself, in order to deliver its benefits - albeit with limited effectiveness - even in scenarios where only a single path can or should be used.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+</section>
+<section class="note rfcEditorRemove" id="section-note.1">
+      <h2 id="name-about-this-document">
+<a href="#name-about-this-document" class="section-name selfRef">About This Document</a>
+      </h2>
+<p id="section-note.1-1">This note is to be removed before publishing as an RFC.<a href="#section-note.1-1" class="pilcrow">¶</a></p>
+<p id="section-note.1-2">
+        The latest revision of this draft can be found at <span><a href="https://netsys-lab.github.io/mpquic-dmtp-draft/draft-tjohn-quic-multipath-dmtp.html">https://netsys-lab.github.io/mpquic-dmtp-draft/draft-tjohn-quic-multipath-dmtp.html</a></span>.
+        Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-tjohn-quic-multipath-dmtp/">https://datatracker.ietf.org/doc/draft-tjohn-quic-multipath-dmtp/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
+<p id="section-note.1-3">Source for this draft and an issue tracker can be found at
+        <span><a href="https://github.com/netsys-lab/mpquic-dmtp-draft">https://github.com/netsys-lab/mpquic-dmtp-draft</a></span>.<a href="#section-note.1-3" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 7 December 2025.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2025 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document. Code Components extracted from this
+            document must include Revised BSD License text as described in
+            Section 4.e of the Trust Legal Provisions and are provided without
+            warranty as described in the Revised BSD License.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1" class="keepWithNext"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.1">
+                <p id="section-toc.1-1.1.2.1.1" class="keepWithNext"><a href="#section-1.1" class="auto internal xref">1.1</a>.  <a href="#name-motivation-and-applications" class="internal xref">Motivation and Applications</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1" class="keepWithNext"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-design-overview" class="internal xref">Design Overview</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.1">
+                <p id="section-toc.1-1.3.2.1.1"><a href="#section-3.1" class="auto internal xref">3.1</a>.  <a href="#name-integrating-deadline-aware-" class="internal xref">Integrating Deadline-Aware Streams into QUIC-MULTIPATH/QUIC</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.1.2.1">
+                    <p id="section-toc.1-1.3.2.1.2.1.1"><a href="#section-3.1.1" class="auto internal xref">3.1.1</a>.  <a href="#name-extensions-to-quic-multipat" class="internal xref">Extensions to QUIC-MULTIPATH/QUIC</a></p>
+</li>
+                </ul>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.2">
+                <p id="section-toc.1-1.3.2.2.1"><a href="#section-3.2" class="auto internal xref">3.2</a>.  <a href="#name-support-for-path-aware-netw" class="internal xref">Support for Path-Aware Networks (PAN)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.3">
+                <p id="section-toc.1-1.3.2.3.1"><a href="#section-3.3" class="auto internal xref">3.3</a>.  <a href="#name-deadlines" class="internal xref">Deadlines</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.3.2.1">
+                    <p id="section-toc.1-1.3.2.3.2.1.1"><a href="#section-3.3.1" class="auto internal xref">3.3.1</a>.  <a href="#name-signalling-deadlines" class="internal xref">Signalling Deadlines</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.3.2.2">
+                    <p id="section-toc.1-1.3.2.3.2.2.1"><a href="#section-3.3.2" class="auto internal xref">3.3.2</a>.  <a href="#name-deadline-semantics" class="internal xref">Deadline Semantics</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.3.2.3">
+                    <p id="section-toc.1-1.3.2.3.2.3.1"><a href="#section-3.3.3" class="auto internal xref">3.3.3</a>.  <a href="#name-handling-missed-deadline" class="internal xref">Handling Missed Deadline</a></p>
+</li>
+                </ul>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.4">
+                <p id="section-toc.1-1.3.2.4.1"><a href="#section-3.4" class="auto internal xref">3.4</a>.  <a href="#name-adaptive-forward-error-corr" class="internal xref">Adaptive Forward Error Correction (FEC)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.5">
+                <p id="section-toc.1-1.3.2.5.1"><a href="#section-3.5" class="auto internal xref">3.5</a>.  <a href="#name-smart-retransmissions" class="internal xref">Smart Retransmissions</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.6">
+                <p id="section-toc.1-1.3.2.6.1"><a href="#section-3.6" class="auto internal xref">3.6</a>.  <a href="#name-path-metrics" class="internal xref">Path Metrics</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.6.2.1">
+                    <p id="section-toc.1-1.3.2.6.2.1.1"><a href="#section-3.6.1" class="auto internal xref">3.6.1</a>.  <a href="#name-per-path-delay" class="internal xref">Per Path Delay</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.6.2.2">
+                    <p id="section-toc.1-1.3.2.6.2.2.1"><a href="#section-3.6.2" class="auto internal xref">3.6.2</a>.  <a href="#name-gathering-path-metrics" class="internal xref">Gathering Path Metrics</a></p>
+</li>
+                </ul>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-extension-to-quic-multipath" class="internal xref">Extension to QUIC-MULTIPATH/QUIC</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.1">
+                <p id="section-toc.1-1.4.2.1.1"><a href="#section-4.1" class="auto internal xref">4.1</a>.  <a href="#name-handshake-negotiation-and-t" class="internal xref">Handshake Negotiation and Transport Parameter</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.2">
+                <p id="section-toc.1-1.4.2.2.1"><a href="#section-4.2" class="auto internal xref">4.2</a>.  <a href="#name-deadline_control-frame" class="internal xref">DEADLINE_CONTROL Frame</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-api" class="internal xref">API</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-commonly-used-data-structur" class="internal xref">Commonly Used Data Structures</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.1">
+                <p id="section-toc.1-1.8.2.1.1"><a href="#section-8.1" class="auto internal xref">8.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.2">
+                <p id="section-toc.1-1.8.2.2.1"><a href="#section-8.2" class="auto internal xref">8.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-acknowledgements" class="internal xref">Acknowledgements</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#appendix-B" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="introduction">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<p id="section-1-1">The Multipath Extension for QUIC <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> enhances performance by simultaneously utilizing multiple paths between endpoints. However, both <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> and <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> currently lack support for strict deadline requirements of real-time applications such as teleoperation, live video streaming, or interactive gaming, which are becoming increasingly important. These applications demand low and bounded latency, and can often tolerate no or only partial retransmission of missing data.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-2">Previous and ongoing work on deadline-aware protocols for <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> includes the Deadline-aware Transport Protocol <span>[<a href="#QUIC-DTP" class="cite xref">QUIC-DTP</a>]</span> as well as Media over QUIC Transport <span>[<a href="#MOQT" class="cite xref">MOQT</a>]</span>, both single-path-only approaches that introduce deadlines for streams but do not exploit multipath capabilities. Meanwhile, our <span>[<a href="#DMTP" class="cite xref">DMTP</a>]</span> approach additionally allows taking advantage of multiple paths, combined with forward error correction (FEC) and intelligent retransmissions, to significantly increase the fraction of packets meeting their deadlines, especially in the presence of lossy or high-latency links.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">By integrating deadline-aware concepts into <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>, we seek to enable:<a href="#section-1-3" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-1-4">
+<li id="section-1-4.1">
+          <p id="section-1-4.1.1">Multipath streams with Deadlines: Scheduling and transmitting data across multiple paths, with strict deadlines of streams driving scheduling decisions.<a href="#section-1-4.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-1-4.2">
+          <p id="section-1-4.2.1">Option for Path-Aware Networking: Support for path selection as offered in Path Aware Networks (e.g., <span>[<a href="#SCION" class="cite xref">SCION</a>]</span>) by mapping each potential path to an <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> path identifier.<a href="#section-1-4.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-1-4.3">
+          <p id="section-1-4.3.1">Deadline-Based Retransmission / FEC: Combining optional adaptive FEC (such as <span>[<a href="#QUIC-AFEC" class="cite xref">QUIC-AFEC</a>]</span>) and "smart" retransmissions only when there may still be time left to meet the deadline.<a href="#section-1-4.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+<p id="section-1-5">Using the deadline-aware concepts of this proposal together with <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> in a single-path scenario will still offer the advantage of deadline-based retransmissions / FEC but limit its effectiveness to the boundaries set by the available path.<a href="#section-1-5" class="pilcrow">¶</a></p>
+<p id="section-1-6">This draft specifies a minimal set of protocol extensions for <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> and <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> respectively to exchange deadline information at the transport layer, so that endpoints can coordinate scheduling for multipath transmissions with strict time constraints. One goal of this proposal is to gather community feedback and gauge interest to guide future refinements.<a href="#section-1-6" class="pilcrow">¶</a></p>
+<div id="motivation-and-applications">
+<section id="section-1.1">
+        <h3 id="name-motivation-and-applications">
+<a href="#section-1.1" class="section-number selfRef">1.1. </a><a href="#name-motivation-and-applications" class="section-name selfRef">Motivation and Applications</a>
+        </h3>
+<p id="section-1.1-1">Real-time applications often produce data blocks (e.g., video frames or control messages) that are only valuable if delivered before a specific deadline. Example use cases include:<a href="#section-1.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-1.1-2.1">
+            <p id="section-1.1-2.1.1">Teleoperation and Remote Control: Robotic control or telepresence systems require deterministic and low latency feedback. Missed control signals, sensor data or video frame deadlines can lead to system instability or degraded user experience.<a href="#section-1.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-2.2">
+            <p id="section-1.1-2.2.1">Live Streaming and Interactive Media: Latency-sensitive video or audio streams (e.g., for live concerts, online VR gaming, cloud rendering) benefit from leveraging multiple paths to sustain low-latency delivery even under varying network conditions.<a href="#section-1.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.1-2.3">
+            <p id="section-1.1-2.3.1">Online Gaming: Multiplayer networked games exchange frequent, time-critical state updates. Late updates are effectively wasted, so an approach to drop or deprioritize old data can save bandwidth and improve real-time responsiveness.<a href="#section-1.1-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="conventions-and-definitions">
+<section id="section-2">
+      <h2 id="name-conventions-and-definitions">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-conventions-and-definitions" class="section-name selfRef">Conventions and Definitions</a>
+      </h2>
+<p id="section-2-1">The key words "<span class="bcp14">MUST</span>", "<span class="bcp14">MUST NOT</span>", "<span class="bcp14">REQUIRED</span>", "<span class="bcp14">SHALL</span>", "<span class="bcp14">SHALL NOT</span>", "<span class="bcp14">SHOULD</span>", "<span class="bcp14">SHOULD NOT</span>", "<span class="bcp14">RECOMMENDED</span>", "<span class="bcp14">NOT RECOMMENDED</span>",
+"<span class="bcp14">MAY</span>", and "<span class="bcp14">OPTIONAL</span>" in this document are to be interpreted as
+described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and only when, they
+appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶</a></p>
+<p id="section-2-2">Within this document:<a href="#section-2-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-2-3.1">
+          <p id="section-2-3.1.1">"Deadline-aware streams" refers to streams in which an application indicates a time by which data must be delivered, beyond which data is no longer useful.<a href="#section-2-3.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-3.2">
+          <p id="section-2-3.2.1">"Path" aligns with the <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> concept: Each path is identified by a unique Path ID, and it may reference a specific combination of source and destination IP:port tuples or a distinct end-to-end path as they may be offered in a path aware network, as defined by <span>[<a href="#RFC9473" class="cite xref">RFC9473</a>]</span>.<a href="#section-2-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-3.3">
+          <p id="section-2-3.3.1">A connection that is "multipath-capable" in the sense of this draft is defined as a connection in which both endpoints negotiate an <code>initial_max_path_id</code> transport parameter from <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> to a value greater than 0.<a href="#section-2-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-3.4">
+          <p id="section-2-3.4.1">A connection that is "multipath-active" in the sense of this draft is defined as a connection that currently has two or more validated paths. Packets may be transmitted on any of these paths.<a href="#section-2-3.4.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+</section>
+</div>
+<div id="design-overview">
+<section id="section-3">
+      <h2 id="name-design-overview">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-design-overview" class="section-name selfRef">Design Overview</a>
+      </h2>
+<div id="features">
+<section id="section-3.1">
+        <h3 id="name-integrating-deadline-aware-">
+<a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-integrating-deadline-aware-" class="section-name selfRef">Integrating Deadline-Aware Streams into QUIC-MULTIPATH/QUIC</a>
+        </h3>
+<p id="section-3.1-1">Our design goal is to extend <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> and <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> respectively with minimal changes. The proposed extension enables endpoints to signal a stream's deadline. Implementations that support deadline-aware streams <span class="bcp14">MUST</span> support:<a href="#section-3.1-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-3.1-2">
+<li id="section-3.1-2.1">
+            <p id="section-3.1-2.1.1">Packet Scheduling: Implement scheduling algorithms that:<a href="#section-3.1-2.1.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.1-2.1.2.1">
+                <p id="section-3.1-2.1.2.1.1">Prioritize packets from streams with earlier deadlines<a href="#section-3.1-2.1.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-2.1.2.2">
+                <p id="section-3.1-2.1.2.2.1">Account for path characteristics when making scheduling decisions<a href="#section-3.1-2.1.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-2.1.2.3">
+                <p id="section-3.1-2.1.2.3.1">Consider current congestion state of available paths<a href="#section-3.1-2.1.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+          <li id="section-3.1-2.2">
+            <p id="section-3.1-2.2.1">Retransmission Control: Implement retransmission policies that:<a href="#section-3.1-2.2.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.1-2.2.2.1">
+                <p id="section-3.1-2.2.2.1.1">Evaluate whether retransmitted packets can meet remaining deadlines<a href="#section-3.1-2.2.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-2.2.2.2">
+                <p id="section-3.1-2.2.2.2.1">Skip retransmissions when deadlines cannot be met<a href="#section-3.1-2.2.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-2.2.2.3">
+                <p id="section-3.1-2.2.2.3.1">Consider path conditions when selecting retransmission paths for a multipath-capable connection<a href="#section-3.1-2.2.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+          <li id="section-3.1-2.3">
+            <p id="section-3.1-2.3.1">Deadline Monitoring: Track deadline status and:<a href="#section-3.1-2.3.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.1-2.3.2.1">
+                <p id="section-3.1-2.3.2.1.1">Detect when deadlines cannot be met<a href="#section-3.1-2.3.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-2.3.2.2">
+                <p id="section-3.1-2.3.2.2.1">Signal deadline misses to the application layer<a href="#section-3.1-2.3.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-2.3.2.3">
+                <p id="section-3.1-2.3.2.3.1">Allow applications to specify handling of missed deadlines<a href="#section-3.1-2.3.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+        </ol>
+<p id="section-3.1-3">Additionally, Implementations supporting deadline-aware streams with multipath-capable connections <span class="bcp14">MUST</span> feature:<a href="#section-3.1-3" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-3.1-4">
+<li id="section-3.1-4.1">
+            <p id="section-3.1-4.1.1">Path Selection: Select paths for transmitting frames, retransmissions and acknowledgements based on metrics relevant to meeting deadlines, including:<a href="#section-3.1-4.1.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.1-4.1.2.1">
+                <p id="section-3.1-4.1.2.1.1">Path latency measurements<a href="#section-3.1-4.1.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-4.1.2.2">
+                <p id="section-3.1-4.1.2.2.1">Estimation of available bandwidth<a href="#section-3.1-4.1.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-4.1.2.3">
+                <p id="section-3.1-4.1.2.3.1">Observed packet loss rates<a href="#section-3.1-4.1.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+        </ol>
+<p id="section-3.1-5">Implementations <span class="bcp14">MAY</span> also choose to support:<a href="#section-3.1-5" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-3.1-6">
+<li id="section-3.1-6.1">
+            <p id="section-3.1-6.1.1">Optional Forward Error Correction: <span class="bcp14">MAY</span> implement FEC mechanisms that:<a href="#section-3.1-6.1.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.1-6.1.2.1">
+                <p id="section-3.1-6.1.2.1.1">Reduce retransmission overhead for deadline-sensitive streams<a href="#section-3.1-6.1.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-6.1.2.2">
+                <p id="section-3.1-6.1.2.2.1">Adapt FEC overhead based on path conditions<a href="#section-3.1-6.1.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-3.1-6.1.2.3">
+                <p id="section-3.1-6.1.2.3.1">Apply FEC selectively based on stream requirements (e.g., stream priority)<a href="#section-3.1-6.1.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+        </ol>
+<div id="extensions-to-quic-multipathquic">
+<section id="section-3.1.1">
+          <h4 id="name-extensions-to-quic-multipat">
+<a href="#section-3.1.1" class="section-number selfRef">3.1.1. </a><a href="#name-extensions-to-quic-multipat" class="section-name selfRef">Extensions to QUIC-MULTIPATH/QUIC</a>
+          </h4>
+<p id="section-3.1.1-1">Our extensions build on <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>'s multipath framework (e.g., paths, path IDs, and validation). It will, however, also work with connections that are not multipath-capable, be it with a reduced feature set (see <a href="#features" class="auto internal xref">Section 3.1</a>). This extension will add only:<a href="#section-3.1.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.1.1-2.1">
+              <p id="section-3.1.1-2.1.1">A transport parameter to enable deadline-aware streams.<a href="#section-3.1.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-3.1.1-2.2">
+              <p id="section-3.1.1-2.2.1">A DEADLINE_CONTROL frame to signal stream deadlines.<a href="#section-3.1.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-3.1.1-2.3">
+              <p id="section-3.1.1-2.3.1">Optional support for an ACK_EXTENDED frame for improved per-path delay feedback.<a href="#section-3.1.1-2.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-3.1.1-2.4">
+              <p id="section-3.1.1-2.4.1">Optional AFEC support via an extra transport parameter and two frames for source and repair symbol metadata.<a href="#section-3.1.1-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-3.1.1-3">This preserves the original wire format, ensuring interoperability with both <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> and <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> endpoints that do not implement these extensions.<a href="#section-3.1.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="support-for-path-aware-networks-pan">
+<section id="section-3.2">
+        <h3 id="name-support-for-path-aware-netw">
+<a href="#section-3.2" class="section-number selfRef">3.2. </a><a href="#name-support-for-path-aware-netw" class="section-name selfRef">Support for Path-Aware Networks (PAN)</a>
+        </h3>
+<p id="section-3.2-1">When operating over a path-aware network in addition to <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>, endpoints can discover and utilize multiple disjoint or partially disjoint paths. This can be provided, for example, by <span>[<a href="#SCION" class="cite xref">SCION</a>]</span> or other architectures such as <span>[<a href="#SR" class="cite xref">SR</a>]</span>. In such an environment, a single source-destination address pair may yield multiple distinct end-to-end paths, each with unique performance characteristics (e.g., latency, loss rate). These paths can be exposed to the transport layer via distinct Path IDs in <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>.<a href="#section-3.2-1" class="pilcrow">¶</a></p>
+<p id="section-3.2-2">This document does not prescribe how endpoints discover and enumerate available paths at the network layer. Rather, it assumes that a PAN can supply multiple viable routes between endpoints. Once discovered, each route is mapped to a unique Path ID, enabling the <span>[<a href="#DMTP" class="cite xref">DMTP</a>]</span> scheduling logic to treat them as distinct transport paths for deadline-aware streams.<a href="#section-3.2-2" class="pilcrow">¶</a></p>
+<p id="section-3.2-3">Multiple paths provided by <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> on the one hand and path diversity provided by PAN on the other hand enhance the effectiveness of <span>[<a href="#DMTP" class="cite xref">DMTP</a>]</span>'s scheduling, retransmission, and optional FEC mechanisms in meeting strict deadlines, making support for PAN essential to the design of the proposed extension.<a href="#section-3.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="deadlines">
+<section id="section-3.3">
+        <h3 id="name-deadlines">
+<a href="#section-3.3" class="section-number selfRef">3.3. </a><a href="#name-deadlines" class="section-name selfRef">Deadlines</a>
+        </h3>
+<div id="signalling-deadlines">
+<section id="section-3.3.1">
+          <h4 id="name-signalling-deadlines">
+<a href="#section-3.3.1" class="section-number selfRef">3.3.1. </a><a href="#name-signalling-deadlines" class="section-name selfRef">Signalling Deadlines</a>
+          </h4>
+<p id="section-3.3.1-1">To signal deadlines, endpoints use the DEADLINE_CONTROL frame (see <a href="#deadline-control-frame" class="auto internal xref">Section 4.2</a>). This frame associates a specific deadline with a stream, indicating the relative time by when the data should be delivered.<a href="#section-3.3.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="deadline-semantics">
+<section id="section-3.3.2">
+          <h4 id="name-deadline-semantics">
+<a href="#section-3.3.2" class="section-number selfRef">3.3.2. </a><a href="#name-deadline-semantics" class="section-name selfRef">Deadline Semantics</a>
+          </h4>
+<ul class="normal">
+<li class="normal" id="section-3.3.2-1.1">
+              <p id="section-3.3.2-1.1.1">Deadline Representation: Deadlines are represented as a relative time in milliseconds from the time the frame is sent.<a href="#section-3.3.2-1.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-3.3.2-1.2">
+              <p id="section-3.3.2-1.2.1">Stream Association: A deadline applies to a specific stream identified by its Stream ID<a href="#section-3.3.2-1.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-3.3.2-1.3">
+              <p id="section-3.3.2-1.3.1">Transport Behavior: Upon receiving a DEADLINE_CONTROL frame, the transport layer <span class="bcp14">SHOULD</span> attempt to schedule and retransmit packets carrying data for the specified stream to meet the indicated deadline.<a href="#section-3.3.2-1.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-3.3.2-1.4">
+              <p id="section-3.3.2-1.4.1">Retransmissions and Scheduling: Endpoints <span class="bcp14">MAY</span> implement custom schedulers and congestion controllers optimized for deadline-aware traffic, such as those based on <span>[<a href="#DMTP" class="cite xref">DMTP</a>]</span> concepts.<a href="#section-3.3.2-1.4.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+</section>
+</div>
+<div id="handling-missed-deadline">
+<section id="section-3.3.3">
+          <h4 id="name-handling-missed-deadline">
+<a href="#section-3.3.3" class="section-number selfRef">3.3.3. </a><a href="#name-handling-missed-deadline" class="section-name selfRef">Handling Missed Deadline</a>
+          </h4>
+<p id="section-3.3.3-1">If the transport layer determines that the deadline cannot be met, it <span class="bcp14">MAY</span> choose to:<a href="#section-3.3.3-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.3.3-2.1">
+              <p id="section-3.3.3-2.1.1">Discard the data associated with the deadline-aware stream.<a href="#section-3.3.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-3.3.3-2.2">
+              <p id="section-3.3.3-2.2.1">Inform the application of the missed deadline.<a href="#section-3.3.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-3.3.3-2.3">
+              <p id="section-3.3.3-2.3.1">Continue delivering the data if it is still deemed useful.<a href="#section-3.3.3-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-3.3.3-3">The specific behavior is implementation-specific and <span class="bcp14">MAY</span> be configurable by the application.<a href="#section-3.3.3-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="adaptive-forward-error-correction-fec">
+<section id="section-3.4">
+        <h3 id="name-adaptive-forward-error-corr">
+<a href="#section-3.4" class="section-number selfRef">3.4. </a><a href="#name-adaptive-forward-error-corr" class="section-name selfRef">Adaptive Forward Error Correction (FEC)</a>
+        </h3>
+<p id="section-3.4-1">When deadlines are tight and packet losses frequent, relying solely on retransmissions may cause data to miss its deadline. To mitigate this risk, this extension optionally uses Adaptive FEC (AFEC) as proposed in <span>[<a href="#QUIC-AFEC" class="cite xref">QUIC-AFEC</a>]</span>. AFEC can reduce the need for retransmissions, particularly in networks with random or bursty loss characteristics.<a href="#section-3.4-1" class="pilcrow">¶</a></p>
+<p id="section-3.4-2">When using AFEC in a multipath-capable connection, the Tag Type of the FEC_Tag <span class="bcp14">MUST</span> be set to 1 to indicate "Long Flow Usage". In turn, both source symbol packets and repair symbol packets <span class="bcp14">MUST</span> carry the FEC_Tag frame so that repair packets can be correctly matched to their corresponding source packets across different paths. Such a constraint is not needed in a connection that is not multipath-capable.<a href="#section-3.4-2" class="pilcrow">¶</a></p>
+<p id="section-3.4-3">In a multipath-active connection, FEC repair packets <span class="bcp14">SHOULD</span> be sent over a path different from the one carrying the source data. This de-correlates losses and increases the likelihood that repair symbols arrive even if other paths experience congestion or packet loss. The coding rate (i.e., the ratio of repair symbols to source symbols) <span class="bcp14">MAY</span> be configured on a per-stream basis, depending on the stream's tolerance for overhead versus its deadline sensitivity.<a href="#section-3.4-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="smart-retransmissions">
+<section id="section-3.5">
+        <h3 id="name-smart-retransmissions">
+<a href="#section-3.5" class="section-number selfRef">3.5. </a><a href="#name-smart-retransmissions" class="section-name selfRef">Smart Retransmissions</a>
+        </h3>
+<p id="section-3.5-1">Smart retransmissions in a deadline-aware context mean that lost frames are only retransmitted if there is still enough time left to meet the deadline via one or - with a multipath-active connection - more paths. The sender computes whether the frames can arrive on time, factoring in the path's estimated one-way delay or RTT. If not, the sender discards the frames rather than wasting congestion window or scheduling capacity.<a href="#section-3.5-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="path-metrics">
+<section id="section-3.6">
+        <h3 id="name-path-metrics">
+<a href="#section-3.6" class="section-number selfRef">3.6. </a><a href="#name-path-metrics" class="section-name selfRef">Path Metrics</a>
+        </h3>
+<p id="section-3.6-1">To schedule traffic effectively, the sender <span class="bcp14">SHOULD</span> gather:<a href="#section-3.6-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.6-2.1">
+            <p id="section-3.6-2.1.1">One-Way Delays or RTT for determining if the data can reach its destination before the deadline and in case of a multipath-capable connection for selecting the path(s) that can deliver data before the deadline.<a href="#section-3.6-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.6-2.2">
+            <p id="section-3.6-2.2.1">Loss Rate: For deciding whether to apply adaptive FEC or more aggressive retransmissions.<a href="#section-3.6-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.6-2.3">
+            <p id="section-3.6-2.3.1">Available Bandwidth: So that sending on path(s) with insufficient capacity does not cause additional delay.<a href="#section-3.6-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<div id="per-path-delay">
+<section id="section-3.6.1">
+          <h4 id="name-per-path-delay">
+<a href="#section-3.6.1" class="section-number selfRef">3.6.1. </a><a href="#name-per-path-delay" class="section-name selfRef">Per Path Delay</a>
+          </h4>
+<p id="section-3.6.1-1">A crucial metric for DMTP is the one-way or round-trip delay of the available path(s). This is used to decide whether a new or retransmitted packet can arrive before its deadline. In a path-aware network, the one-way delay might be advertised or inferred from routing information. Otherwise, endpoints measure RTT or one-way delay themselves.<a href="#section-3.6.1-1" class="pilcrow">¶</a></p>
+<p id="section-3.6.1-2">For accurate one-way delay measurements, endpoints <span class="bcp14">MAY</span> use synchronized clocks; if full clock sync is not feasible, a fallback to round-trip time measurements is still acceptable. For improved delay tracking, the additional fields for the receive timestamp of the ACK_EXTENDED frame as proposed in <span>[<a href="#QUIC-RECEIVE-TS" class="cite xref">QUIC-RECEIVE-TS</a>]</span> is used.<a href="#section-3.6.1-2" class="pilcrow">¶</a></p>
+<p id="section-3.6.1-3">With a multipath-capable connection, if endpoints have agreed on the usage of the ACK_EXTENDED frame with the additional receive timestamp fields (Bit 1 of extended_ack_features transport parameter), packets containing a PING (type=0x01) frame <span class="bcp14">MUST</span> be acknowledged on the same path that the packet was received on.<a href="#section-3.6.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="gathering-path-metrics">
+<section id="section-3.6.2">
+          <h4 id="name-gathering-path-metrics">
+<a href="#section-3.6.2" class="section-number selfRef">3.6.2. </a><a href="#name-gathering-path-metrics" class="section-name selfRef">Gathering Path Metrics</a>
+          </h4>
+<ol start="1" type="1" class="normal type-1" id="section-3.6.2-1">
+<li id="section-3.6.2-1.1">
+              <p id="section-3.6.2-1.1.1">Path-Aware Networks might provide direct metrics, such as path latency or bandwidth as part of path metadata.<a href="#section-3.6.2-1.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li id="section-3.6.2-1.2">
+              <p id="section-3.6.2-1.2.1">Active Probing: If the underlying network does not provide metrics, the endpoint <span class="bcp14">MAY</span> send periodic PING frames or small test packets along each active path.<a href="#section-3.6.2-1.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li id="section-3.6.2-1.3">
+              <p id="section-3.6.2-1.3.1">Path Measurement Frames: This draft uses the ACK_EXTENDED frame (<span>[<a href="#QUIC-RECEIVE-TS" class="cite xref">QUIC-RECEIVE-TS</a>]</span>) for deeper path measurements, including timestamps of packet receipts to estimate per path one-way delay.<a href="#section-3.6.2-1.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li id="section-3.6.2-1.4">
+              <p id="section-3.6.2-1.4.1">Congestion windows, RTT estimates, and packet loss detection from <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>'s standard loss recovery can inform scheduling.<a href="#section-3.6.2-1.4.1" class="pilcrow">¶</a></p>
+</li>
+          </ol>
+</section>
+</div>
+</section>
+</div>
+</section>
+</div>
+<div id="extension-to-quic-multipathquic">
+<section id="section-4">
+      <h2 id="name-extension-to-quic-multipath">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-extension-to-quic-multipath" class="section-name selfRef">Extension to QUIC-MULTIPATH/QUIC</a>
+      </h2>
+<p id="section-4-1">This extension builds upon <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> and <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> respectively. Below we list the protocol additions and modifications. Unless otherwise noted, all rules of <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> or <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> remain.<a href="#section-4-1" class="pilcrow">¶</a></p>
+<div id="transport-parameter">
+<section id="section-4.1">
+        <h3 id="name-handshake-negotiation-and-t">
+<a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-handshake-negotiation-and-t" class="section-name selfRef">Handshake Negotiation and Transport Parameter</a>
+        </h3>
+<p id="section-4.1-1">This extension defines a new transport parameter, used to negotiate the use of deadline-aware streams during the connection handshake, as specified in <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span>. The new transport parameter is defined as follows:<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.1-2.1">
+            <p id="section-4.1-2.1.1">enable_deadline_aware_streams (value TBD): A zero-length value that, if present, indicates that the endpoint supports deadline-aware streams.<a href="#section-4.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-4.1-3">Endpoints negotiate the use of deadline-aware streams by including the enable_deadline_aware_streams transport parameter in the handshake. Both endpoints <span class="bcp14">MUST</span> include this transport parameter to enable the use of deadline-aware streams. If an endpoint receives a DEADLINE_CONTROL frame without having negotiated support, it <span class="bcp14">MUST</span> treat this as a connection error of type PROTOCOL_VIOLATION<a href="#section-4.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="deadline-control-frame">
+<section id="section-4.2">
+        <h3 id="name-deadline_control-frame">
+<a href="#section-4.2" class="section-number selfRef">4.2. </a><a href="#name-deadline_control-frame" class="section-name selfRef">DEADLINE_CONTROL Frame</a>
+        </h3>
+<p id="section-4.2-1">The DEADLINE_CONTROL frame (type=TBD) is used to signal deadline-awareness for specific streams and to indicate their associated deadlines.<a href="#section-4.2-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.2-2">
+<pre>
+  DEADLINE_CONTROL Frame {
+    Type (i) = TBD,
+    Stream ID (i),
+    Deadline (i),
+  }
+</pre><a href="#section-4.2-2" class="pilcrow">¶</a>
+</div>
+<p id="section-4.2-3">The DEADLINE_CONTROL frame contains the following fields:<a href="#section-4.2-3" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-4.2-4">
+          <dt id="section-4.2-4.1">Stream ID:</dt>
+          <dd style="margin-left: 1.5em" id="section-4.2-4.2">
+            <p id="section-4.2-4.2.1">A variable-length integer indicating the Stream ID to which the deadline applies.<a href="#section-4.2-4.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-4.2-4.3">Deadline:</dt>
+          <dd style="margin-left: 1.5em" id="section-4.2-4.4">
+            <p id="section-4.2-4.4.1">A variable-length integer representing the relative deadline in milliseconds from the time the frame is sent.
+An endpoint sends a DEADLINE_CONTROL frame to indicate that data on the specified stream should be delivered by the given deadline. Upon receiving this frame, the peer <span class="bcp14">MUST</span> attempt to schedule and deliver the data on the specified stream within the indicated deadline.<a href="#section-4.2-4.4.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+<p id="section-4.2-5">Usage Constraints:<a href="#section-4.2-5" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.2-6.1">
+            <p id="section-4.2-6.1.1">Endpoints <span class="bcp14">MUST NOT</span> send the DEADLINE_CONTROL frame unless both endpoints have negotiated support via the enable_deadline_aware_streams transport parameter.<a href="#section-4.2-6.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.2-6.2">
+            <p id="section-4.2-6.2.1">If an endpoint receives a DEADLINE_CONTROL frame without having negotiated support, it <span class="bcp14">MUST</span> treat it as a connection error of type PROTOCOL_VIOLATION.<a href="#section-4.2-6.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.2-6.3">
+            <p id="section-4.2-6.3.1">The DEADLINE_CONTROL frame <span class="bcp14">MUST</span> only be sent in 1-RTT packets.<a href="#section-4.2-6.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="api">
+<section id="section-5">
+      <h2 id="name-api">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-api" class="section-name selfRef">API</a>
+      </h2>
+<p id="section-5-1">Though this draft primarily focuses on wire-level protocol changes, an implementation that exposes a user-level API might provide:<a href="#section-5-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5-2.1">
+          <p id="section-5-2.1.1"><code>GetDeadlineAwareStreams(connection)</code>:
+Returns a set of tuples for the given connection (see <a href="#common-data-structures" class="auto internal xref">Section 5.1</a>) in the form of <code>(stream_id, deadline_ms)</code> where a value of 0 for the <code>deadline_ms</code> indicates, that endpoints have agreed on using deadline-aware streams but no <code>DEADLINE_CONTROL</code> Frame has been sent (yet)<a href="#section-5-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-5-2.2">
+          <p id="section-5-2.2.1"><code>SetStreamDeadline(connection, stream_id, deadline_ms)</code>:
+Informs the transport that data on <code>stream_id</code> must arrive before <code>deadline_ms</code>.<a href="#section-5-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-5-2.3">
+          <p id="section-5-2.3.1"><code>GetAvailablePaths(connection)</code>:
+(Optional for use with PAN) Retrieves the available paths between the endpoints from the underlying PAN and returns them as a set of strings, each representing one path. The representation of a path is dependent on the used PAN.<a href="#section-5-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-5-2.4">
+          <p id="section-5-2.4.1"><code>SetPaths(connection, pan_paths)</code>:
+(Optional for use with PAN) Defines the subset of available paths (a set of strings) to be used. This applies to all the streams inside the connection. Depending on the underlying PAN, the string(s) might include wildcards or other operators that can be interpreted by the PAN.<a href="#section-5-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-5-2.5">
+          <p id="section-5-2.5.1"><code>GetStreamPaths(connection, stream_id)</code>:
+Returns a set of tuples in the form of <code>(path_id, role)</code> where <code>role</code> describes the role of the path in the stream. Possible values are:<a href="#section-5-2.5.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5-2.5.2.1">
+              <p id="section-5-2.5.2.1.1"><code>data</code>: The path(s) over which data is transmitted<a href="#section-5-2.5.2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5-2.5.2.2">
+              <p id="section-5-2.5.2.2.1"><code>retransmission</code>: The path that is used for retransmissions and acknowledgements<a href="#section-5-2.5.2.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5-2.5.2.3">
+              <p id="section-5-2.5.2.3.1"><code>backup</code>: Path(s) that can be used if any <code>data</code> path(s) become(s) unavailable<a href="#section-5-2.5.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5-2.5.2.4">
+              <p id="section-5-2.5.2.4.1"><code>none</code>: Path(s) that will not be used<a href="#section-5-2.5.2.4.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+</li>
+        <li class="normal" id="section-5-2.6">
+          <p id="section-5-2.6.1"><code>SetStreamPaths(connection, stream_id, paths)</code>:
+(Optional for use with external optimizer) Allows defining, which paths should be used for a given <code>stream_id</code>. <code>paths</code> is a set of tuples in the form of <code>(path_id, role, fraction)</code>. Available paths that are omitted here will receive the role <code>none</code>. <code>fraction</code> may only be used on paths with the role <code>data</code> and is only effective if there is more than one <code>data</code> path.<a href="#section-5-2.6.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-5-2.7">
+          <p id="section-5-2.7.1"><code>GetPathMetrics(connection, stream_id, path_id)</code>:
+Returns a set of key-value pairs (KVP) which characterize the path. Possible KVPs are:<a href="#section-5-2.7.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5-2.7.2.1">
+              <p id="section-5-2.7.2.1.1"><code>role</code>: Describes the role of the path in the connection; Possible values: <code>data</code>, <code>retransmission</code>, <code>backup</code>, <code>none</code><a href="#section-5-2.7.2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5-2.7.2.2">
+              <p id="section-5-2.7.2.2.1"><code>bandwidth</code>: the bandwidth in bits/s of the path as measured or as signaled by the PAN.<a href="#section-5-2.7.2.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5-2.7.2.3">
+              <p id="section-5-2.7.2.3.1"><code>owd</code>: One way delay in ms of the path as measured or as signaled by the PAN; <span class="bcp14">MUST</span> only be populated, if <code>rtt</code> is left empty.<a href="#section-5-2.7.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5-2.7.2.4">
+              <p id="section-5-2.7.2.4.1"><code>rtt</code>: Round trip time in ms of the path as measured or as signaled by the PAN; <span class="bcp14">MUST</span> only be populated, if <code>owd</code> is left empty.<a href="#section-5-2.7.2.4.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5-2.7.2.5">
+              <p id="section-5-2.7.2.5.1"><code>loss_rate</code>: Loss rate of the path as measured.<a href="#section-5-2.7.2.5.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5-2.7.2.6">
+              <p id="section-5-2.7.2.6.1"><code>costs</code>: If a metric for the cost of a path is available, it may be included here<a href="#section-5-2.7.2.6.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+</li>
+        <li class="normal" id="section-5-2.8">
+          <p id="section-5-2.8.1"><code>OnMissedDeadline(connection, stream_id)</code>:
+(Optional) callback that the transport can invoke if data is considered impossible to deliver on time. The application can choose to send new data, discard, or do nothing.<a href="#section-5-2.8.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-5-3">These calls let an application specify deadlines and priorities dynamically.<a href="#section-5-3" class="pilcrow">¶</a></p>
+<div id="common-data-structures">
+<section id="section-5.1">
+        <h3 id="name-commonly-used-data-structur">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-commonly-used-data-structur" class="section-name selfRef">Commonly Used Data Structures</a>
+        </h3>
+<ul class="normal">
+<li class="normal" id="section-5.1-1.1">
+            <p id="section-5.1-1.1.1">Connection:
+The connection is the 4-tuple introduced by <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> which identifies a connection. It is structured like <code>(source_IP, source_port, destination_IP, destination_port)</code><a href="#section-5.1-1.1.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="security-considerations">
+<section id="section-6">
+      <h2 id="name-security-considerations">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<p id="section-6-1">This extension retains all the security features and considerations of <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span>, <span>[<a href="#QUIC-TLS" class="cite xref">QUIC-TLS</a>]</span> and <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span>.
+Nevertheless, it introduces additional considerations:<a href="#section-6-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6-2.1">
+          <p id="section-6-2.1.1">Deadline Signaling: Knowledge of deadlines or priorities may be sensitive if it reveals application timing patterns or critical data intervals. Implementations <span class="bcp14">SHOULD</span> carefully handle metadata (e.g., by encrypting frames in 1-RTT packets).<a href="#section-6-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-6-2.2">
+          <p id="section-6-2.2.1">Resource Exhaustion and Flooding: The ability to manage multiple concurrent paths and to schedule or drop data based on deadlines must not weaken <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span>'s anti-amplification measures. Endpoints <span class="bcp14">MUST</span> still follow <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span> path validation procedures, ensuring that an attacker cannot exploit deadline-aware frames to amplify traffic.<a href="#section-6-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-6-2.3">
+          <p id="section-6-2.3.1">When employing ACK_EXTENDED frames for one-way delay measurement with clock synchronization, the clock synchronization must also be secured. Otherwise, an attacker injecting false timestamps could mislead scheduling. Endpoints that rely heavily on these measurements should be aware of that risk and possibly cross-check with measured RTT or other heuristics.<a href="#section-6-2.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+</section>
+</div>
+<div id="iana-considerations">
+<section id="section-7">
+      <h2 id="name-iana-considerations">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+      </h2>
+<p id="section-7-1">This document defines a new transport parameter for the negotiation of deadline-aware streams for <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> or <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span>, and one new frame type. The draft defines provisional values for experiments.<a href="#section-7-1" class="pilcrow">¶</a></p>
+<p id="section-7-2">The following entry in <a href="#transport-parameters" class="auto internal xref">Table 1</a> should be added to the "QUIC Transport Parameters" registry under the "QUIC Protocol" heading.<a href="#section-7-2" class="pilcrow">¶</a></p>
+<span id="name-addition-to-quic-transport-"></span><div id="transport-parameters">
+<table class="center" id="table-1">
+        <caption>
+<a href="#table-1" class="selfRef">Table 1</a>:
+<a href="#name-addition-to-quic-transport-" class="selfRef">Addition to QUIC Transport Parameters Entries</a>
+        </caption>
+<thead>
+          <tr>
+            <th class="text-left" rowspan="1" colspan="1">Value</th>
+            <th class="text-left" rowspan="1" colspan="1">Parameter Name.</th>
+            <th class="text-left" rowspan="1" colspan="1">Specification</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">TBD</td>
+            <td class="text-left" rowspan="1" colspan="1">enable_deadline_aware_streams</td>
+            <td class="text-left" rowspan="1" colspan="1">
+              <a href="#transport-parameter" class="auto internal xref">Section 4.1</a>
+</td>
+          </tr>
+        </tbody>
+      </table>
+</div>
+<p id="section-7-4">The following frame types defined in <a href="#frame-types" class="auto internal xref">Table 2</a> should be added to
+the "QUIC Frame Types" registry under the "QUIC Protocol" heading.<a href="#section-7-4" class="pilcrow">¶</a></p>
+<span id="name-addition-to-quic-frame-type"></span><div id="frame-types">
+<table class="center" id="table-2">
+        <caption>
+<a href="#table-2" class="selfRef">Table 2</a>:
+<a href="#name-addition-to-quic-frame-type" class="selfRef">Addition to QUIC Frame Types Entries</a>
+        </caption>
+<thead>
+          <tr>
+            <th class="text-left" rowspan="1" colspan="1">Value</th>
+            <th class="text-left" rowspan="1" colspan="1">Frame Name</th>
+            <th class="text-left" rowspan="1" colspan="1">Specification</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">TBD (1)</td>
+            <td class="text-left" rowspan="1" colspan="1">DEADLINE_CONTROL</td>
+            <td class="text-left" rowspan="1" colspan="1">
+              <a href="#deadline-control-frame" class="auto internal xref">Section 4.2</a>
+</td>
+          </tr>
+        </tbody>
+      </table>
+</div>
+</section>
+</div>
+<div id="sec-combined-references">
+<section id="section-8">
+      <h2 id="name-references">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-references" class="section-name selfRef">References</a>
+      </h2>
+<div id="sec-normative-references">
+<section id="section-8.1">
+        <h3 id="name-normative-references">
+<a href="#section-8.1" class="section-number selfRef">8.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
+<dl class="references">
+<dt id="QUIC">[QUIC]</dt>
+        <dd>
+<span class="refAuthor">Iyengar, J., Ed.</span> and <span class="refAuthor">M. Thomson, Ed.</span>, <span class="refTitle">"QUIC: A UDP-Based Multiplexed and Secure Transport"</span>, <span class="seriesInfo">RFC 9000</span>, <span class="seriesInfo">DOI 10.17487/RFC9000</span>, <time datetime="2021-05" class="refDate">May 2021</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9000">https://www.rfc-editor.org/rfc/rfc9000</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="QUIC-AFEC">[QUIC-AFEC]</dt>
+        <dd>
+<span class="refAuthor">Moskvitin, D.</span>, <span class="refAuthor">Onegin, E.</span>, <span class="refAuthor">Huang, R.</span>, <span class="refAuthor">Luo, H.</span>, and <span class="refAuthor">Q. Chen</span>, <span class="refTitle">"Adaptive Forward Erasure Correction for Delay-Sensitive QUIC Connections"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-dmoskvitin-quic-adaptive-fec-00</span>, <time datetime="2024-05-06" class="refDate">6 May 2024</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-dmoskvitin-quic-adaptive-fec-00">https://datatracker.ietf.org/doc/html/draft-dmoskvitin-quic-adaptive-fec-00</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="QUIC-MULTIPATH">[QUIC-MULTIPATH]</dt>
+        <dd>
+<span class="refAuthor">Liu, Y.</span>, <span class="refAuthor">Ma, Y.</span>, <span class="refAuthor">De Coninck, Q.</span>, <span class="refAuthor">Bonaventure, O.</span>, <span class="refAuthor">Huitema, C.</span>, and <span class="refAuthor">M. Kühlewind</span>, <span class="refTitle">"Multipath Extension for QUIC"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-quic-multipath-14</span>, <time datetime="2025-04-23" class="refDate">23 April 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-quic-multipath-14">https://datatracker.ietf.org/doc/html/draft-ietf-quic-multipath-14</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="QUIC-RECEIVE-TS">[QUIC-RECEIVE-TS]</dt>
+        <dd>
+<span class="refAuthor">Smith, C.</span>, <span class="refAuthor">Swett, I.</span>, <span class="refAuthor">Beshay, J.</span>, <span class="refAuthor">Jaiswal, S.</span>, <span class="refAuthor">Purushothaman, I.</span>, and <span class="refAuthor">B. Schlinker</span>, <span class="refTitle">"QUIC Extended Acknowledgement for Reporting Packet Receive Timestamps"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-smith-quic-receive-ts-02</span>, <time datetime="2025-04-22" class="refDate">22 April 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-smith-quic-receive-ts-02">https://datatracker.ietf.org/doc/html/draft-smith-quic-receive-ts-02</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="QUIC-TLS">[QUIC-TLS]</dt>
+        <dd>
+<span class="refAuthor">Thomson, M., Ed.</span> and <span class="refAuthor">S. Turner, Ed.</span>, <span class="refTitle">"Using TLS to Secure QUIC"</span>, <span class="seriesInfo">RFC 9001</span>, <span class="seriesInfo">DOI 10.17487/RFC9001</span>, <time datetime="2021-05" class="refDate">May 2021</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9001">https://www.rfc-editor.org/rfc/rfc9001</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC2119">[RFC2119]</dt>
+        <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc2119">https://www.rfc-editor.org/rfc/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8174">[RFC8174]</dt>
+        <dd>
+<span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8174">https://www.rfc-editor.org/rfc/rfc8174</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9473">[RFC9473]</dt>
+      <dd>
+<span class="refAuthor">Enghardt, R.</span> and <span class="refAuthor">C. Krähenbühl</span>, <span class="refTitle">"A Vocabulary of Path Properties"</span>, <span class="seriesInfo">RFC 9473</span>, <span class="seriesInfo">DOI 10.17487/RFC9473</span>, <time datetime="2023-09" class="refDate">September 2023</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9473">https://www.rfc-editor.org/rfc/rfc9473</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="sec-informative-references">
+<section id="section-8.2">
+        <h3 id="name-informative-references">
+<a href="#section-8.2" class="section-number selfRef">8.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
+<dt id="DMTP">[DMTP]</dt>
+        <dd>
+<span class="refAuthor">John, T.</span>, <span class="refAuthor">Perrig, A.</span>, and <span class="refAuthor">D. Hausheer</span>, <span class="refTitle">"DMTP: Deadline-aware Multipath Transport Protocol"</span>, <span class="refContent">IEEE</span>, <span class="seriesInfo">2023 IFIP Networking Conference (IFIP Networking)</span>, <span class="seriesInfo">DOI 10.23919/ifipnetworking57963.2023.10186417</span>, <time datetime="2023-06" class="refDate">June 2023</time>, <span>&lt;<a href="https://doi.org/10.23919/ifipnetworking57963.2023.10186417">https://doi.org/10.23919/ifipnetworking57963.2023.10186417</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="MOQT">[MOQT]</dt>
+        <dd>
+<span class="refAuthor">Nandakumar, S.</span>, <span class="refAuthor">Vasiliev, V.</span>, <span class="refAuthor">Swett, I.</span>, and <span class="refAuthor">A. Frindell</span>, <span class="refTitle">"Media over QUIC Transport"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-moq-transport-11</span>, <time datetime="2025-04-28" class="refDate">28 April 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-11">https://datatracker.ietf.org/doc/html/draft-ietf-moq-transport-11</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="QUIC-DTP">[QUIC-DTP]</dt>
+        <dd>
+<span class="refAuthor">Cui, Y.</span>, <span class="refAuthor">Ma, C.</span>, <span class="refAuthor">Shi, H.</span>, <span class="refAuthor">Zheng, K.</span>, and <span class="refAuthor">W. Wang</span>, <span class="refTitle">"Deadline-aware Transport Protocol"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-shi-quic-dtp-10</span>, <time datetime="2024-07-29" class="refDate">29 July 2024</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-shi-quic-dtp-10">https://datatracker.ietf.org/doc/html/draft-shi-quic-dtp-10</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="SCION">[SCION]</dt>
+        <dd>
+<span class="refAuthor">de Kater, C.</span>, <span class="refAuthor">Rustignoli, N.</span>, and <span class="refAuthor">S. Hitz</span>, <span class="refTitle">"SCION Control Plane"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-dekater-scion-controlplane-07</span>, <time datetime="2024-12-24" class="refDate">24 December 2024</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-dekater-scion-controlplane-07">https://datatracker.ietf.org/doc/html/draft-dekater-scion-controlplane-07</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="SR">[SR]</dt>
+      <dd>
+<span class="refAuthor">Filsfils, C., Ed.</span>, <span class="refAuthor">Previdi, S., Ed.</span>, <span class="refAuthor">Ginsberg, L.</span>, <span class="refAuthor">Decraene, B.</span>, <span class="refAuthor">Litkowski, S.</span>, and <span class="refAuthor">R. Shakir</span>, <span class="refTitle">"Segment Routing Architecture"</span>, <span class="seriesInfo">RFC 8402</span>, <span class="seriesInfo">DOI 10.17487/RFC8402</span>, <time datetime="2018-07" class="refDate">July 2018</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8402">https://www.rfc-editor.org/rfc/rfc8402</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+</section>
+</div>
+<div id="acknowledgements">
+<section id="appendix-A">
+      <h2 id="name-acknowledgements">
+<a href="#name-acknowledgements" class="section-name selfRef">Acknowledgements</a>
+      </h2>
+<p id="appendix-A-1">The authors thank the QUIC working group and the designers of <span>[<a href="#QUIC" class="cite xref">QUIC</a>]</span>, <span>[<a href="#QUIC-MULTIPATH" class="cite xref">QUIC-MULTIPATH</a>]</span> and <span>[<a href="#QUIC-DTP" class="cite xref">QUIC-DTP</a>]</span> for paving the way for deadline-aware features in QUIC. The concept of scheduling data with deadlines over multiple paths builds on numerous discussions about partial reliability, adaptive FEC, and optimal path selection.<a href="#appendix-A-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-B">
+      <h2 id="name-authors-addresses">
+<a href="#name-authors-addresses" class="section-name selfRef">Authors' Addresses</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Tony John</span></div>
+<div dir="auto" class="left"><span class="org">Otto-von-Guericke University Magdeburg</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:tony.john@ovgu.de" class="email">tony.john@ovgu.de</a>
+</div>
+</address>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Till-Frederik Riechard</span></div>
+<div dir="auto" class="left"><span class="org">Otto-von-Guericke University Magdeburg</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:riechard@ovgu.de" class="email">riechard@ovgu.de</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>
