@@ -5,7 +5,7 @@
 Network Working Group                                            T. John
 Internet-Draft                                               T. Riechard
 Intended status: Experimental     Otto-von-Guericke University Magdeburg
-Expires: 4 December 2025                                     2 June 2025
+Expires: 7 December 2025                                     5 June 2025
 
 
                 Deadline Aware Streams in QUIC Multipath
@@ -28,7 +28,7 @@ Abstract
    combination, DMTP enables endpoints to exchange and schedule
    deadline-aware streams across multiple network paths.  Additionally,
    this proposal also maintains compatibility with QUIC itself, in order
-   to deliver its benefits – albeit with limited effectiveness – even in
+   to deliver its benefits - albeit with limited effectiveness - even in
    scenarios where only a single path can or should be used.
 
 About This Document
@@ -58,7 +58,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 4 December 2025.
+   This Internet-Draft will expire on 7 December 2025.
 
 Copyright Notice
 
@@ -292,7 +292,7 @@ Table of Contents
    [QUIC-MULTIPATH], endpoints can discover and utilize multiple
    disjoint or partially disjoint paths.  This can be provided, for
    example, by [SCION] or other architectures such as [SR].  In such an
-   environment, a single source–destination address pair may yield
+   environment, a single source-destination address pair may yield
    multiple distinct end-to-end paths, each with unique performance
    characteristics (e.g., latency, loss rate).  These paths can be
    exposed to the transport layer via distinct Path IDs in
@@ -380,7 +380,7 @@ Table of Contents
 
    Smart retransmissions in a deadline-aware context mean that lost
    frames are only retransmitted if there is still enough time left to
-   meet the deadline via one or – with a multipath-active connection –
+   meet the deadline via one or - with a multipath-active connection -
    more paths.  The sender computes whether the frames can arrive on
    time, factoring in the path's estimated one-way delay or RTT.  If
    not, the sender discards the frames rather than wasting congestion
