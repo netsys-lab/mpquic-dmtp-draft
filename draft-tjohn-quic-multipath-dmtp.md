@@ -47,7 +47,7 @@ informative:
 
 --- abstract
 
-This document proposes the Deadline-aware Multipath Transport Protocol (DMTP) concept as an extension to the Multipath Extension for QUIC (QUIC-MULTIPATH) as well as QUIC itself. This extension aims to support data streams with strict latency requirements by enabling the signaling of a stream's deadline and ideally by combining multipath scheduling, congestion control adaptations, and optional forward error correction (FEC). Moreover, DMTP leverages the path identifiers introduced by the Multipath Extension for QUIC to distinguish different end-to-end paths as they may be offered in a Path Aware Network (PAN) such as SCION. This allows an application to select its preferred paths while maintaining interoperability with standard endpoints using the Multipath Extension for QUIC. In combination, DMTP enables endpoints to exchange and schedule deadline-aware streams across multiple network paths. Additionally, this proposal also maintains compatibility with QUIC itself, in order to deliver its benefits – albeit with limited effectiveness – even in scenarios where only a single path can or should be used.
+This document proposes the Deadline-aware Multipath Transport Protocol (DMTP) concept as an extension to the Multipath Extension for QUIC (QUIC-MULTIPATH) as well as QUIC itself. This extension aims to support data streams with strict latency requirements by enabling the signaling of a stream's deadline and ideally by combining multipath scheduling, congestion control adaptations, and optional forward error correction (FEC). Moreover, DMTP leverages the path identifiers introduced by the Multipath Extension for QUIC to distinguish different end-to-end paths as they may be offered in a Path Aware Network (PAN) such as SCION. This allows an application to select its preferred paths while maintaining interoperability with standard endpoints using the Multipath Extension for QUIC. In combination, DMTP enables endpoints to exchange and schedule deadline-aware streams across multiple network paths. Additionally, this proposal also maintains compatibility with QUIC itself, in order to deliver its benefits - albeit with limited effectiveness - even in scenarios where only a single path can or should be used.
 
 --- middle
 
@@ -135,7 +135,7 @@ This preserves the original wire format, ensuring interoperability with both {{Q
 
 ## Support for Path-Aware Networks (PAN)
 
-When operating over a path-aware network in addition to {{QUIC-MULTIPATH}}, endpoints can discover and utilize multiple disjoint or partially disjoint paths. This can be provided, for example, by {{SCION}} or other architectures such as {{SR}}. In such an environment, a single source–destination address pair may yield multiple distinct end-to-end paths, each with unique performance characteristics (e.g., latency, loss rate). These paths can be exposed to the transport layer via distinct Path IDs in {{QUIC-MULTIPATH}}.
+When operating over a path-aware network in addition to {{QUIC-MULTIPATH}}, endpoints can discover and utilize multiple disjoint or partially disjoint paths. This can be provided, for example, by {{SCION}} or other architectures such as {{SR}}. In such an environment, a single source-destination address pair may yield multiple distinct end-to-end paths, each with unique performance characteristics (e.g., latency, loss rate). These paths can be exposed to the transport layer via distinct Path IDs in {{QUIC-MULTIPATH}}.
 
 This document does not prescribe how endpoints discover and enumerate available paths at the network layer. Rather, it assumes that a PAN can supply multiple viable routes between endpoints. Once discovered, each route is mapped to a unique Path ID, enabling the {{DMTP}} scheduling logic to treat them as distinct transport paths for deadline-aware streams.
 
@@ -174,7 +174,7 @@ In a multipath-active connection, FEC repair packets SHOULD be sent over a path 
 
 ## Smart Retransmissions
 
-Smart retransmissions in a deadline-aware context mean that lost frames are only retransmitted if there is still enough time left to meet the deadline via one or – with a multipath-active connection – more paths. The sender computes whether the frames can arrive on time, factoring in the path's estimated one-way delay or RTT. If not, the sender discards the frames rather than wasting congestion window or scheduling capacity.
+Smart retransmissions in a deadline-aware context mean that lost frames are only retransmitted if there is still enough time left to meet the deadline via one or - with a multipath-active connection - more paths. The sender computes whether the frames can arrive on time, factoring in the path's estimated one-way delay or RTT. If not, the sender discards the frames rather than wasting congestion window or scheduling capacity.
 
 ## Path Metrics
 
